@@ -1,62 +1,87 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/ipc.h>
-#include <sys/shm.h>
 #include <sys/sem.h>
+#include <sys/shm.h>
 #include <sys/types.h>
-#define KEY 1337
+#include <errno.h>
+#include <fcntl.h>
 
-union semun {
-	int val;
-	struct semid_ds *buf;
-	unsigned short  *array;
-	struct seminfo  *__buf;
-};
 
-int main(){
-	char * commands = malloc(256);
-	printf("--------------------------------------------------\n");
-	printf("COMMANDS\n create : -C\n remove : -r\n view :   -v\n");
-	printf("--------------------------------------------------\n");
-	printf("What is your command? > ");
-	scanf("%s", commands);
-	while(1){
-		if(!strcmp("-C", commands)){
-			int shared_mem = shmget(KEY,1024,IPC_CREAT | 0644);
-			char *str = (char*)shmat(shared_mem,0,0);
-			str = malloc(256);
-			printf("write something:\n");
-			scanf("%s",str);
-			free(str);
-			shmdt(shared_mem);
-			int semaphore = semget(KEY,2,IPC_CREAT | 0644);
-			int file = open("file.txt", O_CREAT | O_APPEND | 0644);
-			printf("write to file:\n");
-			scanf("%s",str);
-			write(file, str, sizeof(*str));
-			close(file);
-			break;
-		}
-		else if(!strcmp("-v", commands)){
-			char *str;
-			int seg_id;
-			//printf("What is the segment's ID? > ");
-			//scanf("%d",seg_id);
-			int shared_mem = shmget(KEY,1024,0);
-			str = (char*)shmat(shared_mem,0,0);
-			printf("%s\n",str);
-			shmdt(shared_mem);
-			break;
-		}
-		else{
-			printf("What is your command? > ");
-			free(commands);
-		}
-		scanf("%s",commands);
-	}
+int main() {
+  int shmid;
+  int semd;
+  char * data;
+  FILE * t = open("textfile", O_CREAT | 0644);
 
-	return 0;
+  if ((semd = semget(KEY, 1, 0)) == -1) {
+    printf("Error %d in main: %s\n", errno, strerror(errno));
+    exit(1);
+  }
+  printf("Got here 23\n");
+  if ((shmid = shmget(KEY, sizeof(KEY), 0644)) == -1) {
+    printf("Error %d in main: %s\n", errno, strerror(errno));
+    exit(1);
+  }
+  printf("Got here 28\n");
+
+  struct sembuf sb;
+  sb.sem_num = 0;
+  sb.sem_flg = SEM_UNDO;
+  sb.sem_op = -1;
+  semop(semd, &sb, 1);
+  printf("Got here 35\n");
+  printf("Would you like to read or write?\n(W)rite\n(R)ead\n");
+  char choice[10];
+  fgets(choice, 10, stdin);
+  choice[strcspn(choice, "\n")] = '\0';
+  printf("Got here 40\n");
+  if (!strcmp(choice, "W")) {
+    FILE * f = open("textfile", O_RDWR, 0644);
+    printf("Writing to file\n");
+    if ((data = shmat(shmid, (void *)0, 0)) == -1) {
+      printf("Error %d in main: %s\n", errno, strerror(errno));
+      exit(1);
+    }
+    printf("Got here 47\n");
+    printf("Currently, this is in file\n%s\n", data);
+    printf("What would you like to add?\n");
+    char add[256];
+    fgets(add, 256, stdin);
+    add[strcspn(add, "\n")] = '\0';
+
+    strcpy(data, add);
+    int wr;
+    /*if ((wr = fputs(add, f)) == -1) {              //gives seg fault, do not know why
+      printf("Error %d in main: %s\n", errno, strerror(errno));
+      exit(1);
+    }*/
+  }else{
+    printf("Reading from file\n");
+    FILE * f = open("textfile", O_RDONLY, 0644);
+    if (f == -1) {
+      printf("Error %d in main: %s\n", errno, strerror(errno));
+      exit(1);
+    }
+    printf("Got here 62\n");
+    char reading[1024];
+    int re = read(f, reading, 1023);
+    if (re == -1) {
+      printf("Error %d: %s\n", errno, strerror(errno));
+      exit(1);
+    }
+    printf("Got here 69\n");
+    if (re != NULL) {
+      printf("This was read:\n%s\n", re);
+    }else{
+      printf("Nothing read. Add something to begin.\n");
+    }
+  }
+
+  sb.sem_op = 1;
+  semop(semd, &sb, 1);
+
+  return 0;
 }
