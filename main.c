@@ -14,7 +14,7 @@ int main() {
   int shmid = shmget(KEY, 100, 0);
   int semid = semget(KEY, 1, 0);
   int file = open("file.txt", O_WRONLY|O_APPEND);
-  if(shmid == -1 || semid == -1 || file == -1){
+  if (shmid == -1 || semid == -1 || file == -1) {
     printf("Error: %s\n",strerror(errno));
   }
   else{
