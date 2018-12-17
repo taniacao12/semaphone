@@ -24,16 +24,16 @@ int main(){
 	printf("What is your command? > ");
 	scanf("%s", commands);
 	while(1){
+		int shared_mem = shmget(KEY,1024,IPC_CREAT | 0644);
+		char *str = (char*)shmat(shared_mem,0,0);
+		int file = open("file.txt", O_CREAT | O_APPEND | 0644);
+		int semaphore = semget(KEY,2,IPC_CREAT | 0644);
 		if(!strcmp("-C", commands)){
-			int shared_mem = shmget(KEY,1024,IPC_CREAT | 0644);
-			char *str = (char*)shmat(shared_mem,0,0);
 			str = malloc(256);
 			printf("write something:\n");
 			scanf("%s",str);
 			free(str);
 			shmdt(shared_mem);
-			int semaphore = semget(KEY,2,IPC_CREAT | 0644);
-			int file = open("file.txt", O_CREAT | O_APPEND | 0644);
 			printf("write to file:\n");
 			scanf("%s",str);
 			write(file, str, sizeof(*str));
@@ -51,7 +51,6 @@ int main(){
 			shmdt(shared_mem);
 			break;
 		}
-
 		else if (!strcmp("-r", commands)) {
 			int shared_mem = shmget(KEY,1024,0);
 			str = (char*)shmat(shared_mem,0,0);
@@ -60,10 +59,8 @@ int main(){
         shmctl(shared_mem, IPC_RMID, 0);
         semctl(semaphore, 0, IPC_RMID, 0);
         fclose(file);
-        remove("story.txt");
+        remove("file.txt");
       }
-		}
-
 	else{
 		printf("What is your command? > ");
 		free(commands);
